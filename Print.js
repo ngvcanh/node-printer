@@ -168,7 +168,7 @@ Print.prototype.tableRow = function(data, options){
         else{
           line.push(this._formatCell(subText.join(' '), row.width, row.align));
           added = true;
-          subText = '';
+          subText = [];
         }
       }
       while(arrWord.length);
