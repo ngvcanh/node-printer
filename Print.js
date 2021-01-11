@@ -139,35 +139,44 @@ Print.prototype.tableRow = function(data, options){
     let line = [], textLine = row.width > 0 ? row.text : '';
 
     if (textLine.length){
-      let arrWord = textLine.split(' '), subText = '', word, added = false;
+      let arrWord = textLine.split(' '), subText = [], word, added = false;
 
       do{
         word = arrWord.shift();
+        let currentLength = subText.join(' ').length;
         
-        if (word.length + subText.length + 1< row.width){
-          subText += ' ' + word;
+        if (word.length + currentLength + 1 < row.width){
+          subText.push(word);
           added = false;
         }
         else if (word.length > row.width){
           do{
-            subText = word.substr(0, row.width);
-            word = word.substr(row.width);
-            line.push(subText)
+            let length = row.width - currentLength;
+            currentLength > 0 && (length -= 1);
+
+            subText.push(word.substr(0, length));
+            word = word.substr(length);
+            line.push(subText.join(' '));
+
+            subText = [];
+            currentLength = 0;
           }
           while(word.length);
 
-          subText = '';
           added = true;
         }
         else{
-          line.push(this._formatCell(subText, row.width, row.align));
+          line.push(this._formatCell(subText.join(' '), row.width, row.align));
           added = true;
           subText = '';
         }
       }
       while(arrWord.length);
 
-      added || subText.length && line.push(this._formatCell(subText, row.width, row.align));
+      if (!added){
+        subText = subText.join(' ');
+        subText.length && line.push(this._formatCell(subText, row.width, row.align));
+      }
     }
     else{
       line.push(' '.repeat(textLine.length));
