@@ -1,0 +1,20 @@
+{
+  "name": "test-electron",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron": "^11.1.1",
+    "mutable-buffer": "^3.0.0",
+    "serialport": "^9.0.4"
+  },
+  "devDependencies": {
+    "electron-rebuild": "^2.3.4"
+  }
+}
