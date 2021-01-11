@@ -148,22 +148,34 @@ Print.prototype.tableRow = function(data, options){
           subText += ' ' + word;
           added = false;
         }
+        else if (word.length > row.width){
+          do{
+            subText = word.substr(0, row.width);
+            word = word.substr(row.width);
+            line.push(subText)
+          }
+          while(word.length);
+
+          subText = '';
+          added = true;
+        }
         else{
           line.push(this._formatCell(subText, row.width, row.align));
           added = true;
           subText = '';
-          if (arrWord.length) maxLine++;
         }
       }
       while(arrWord.length);
 
-      added || line.push(this._formatCell(subText, row.width, row.align));
+      added || subText.length && line.push(this._formatCell(subText, row.width, row.align));
     }
     else{
       line.push(' '.repeat(textLine.length));
     }
 
+    line.length > maxLine && (maxLine = line.length);
     row.line = line;
+
     return row;
   });
 
