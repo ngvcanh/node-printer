@@ -5,6 +5,7 @@ const Print = require('./Print');
 const print = () => {
   let p = new Print({ path: 'COM2', baudRate: 19200 }, { width: 64 });
   p.open(function(err){console.log('herere');
+  console.log(this);
     p
     .font('b')
     .align('RT')
@@ -43,11 +44,13 @@ const print = () => {
       { text: '3', width: 0.2, align: 'CENTER' },
       { text: '12,300 $', align: 'RIGHT' }
     ])
+    .size(1,1)
     .tableRow([
       { text: 'Food 3 Food 3 Food 3 Food 3 Food 3 Food 3', width: 0.5 },
       { text: '1', width: 0.2, align: 'CENTER' },
       { text: '12,300 $', align: 'RIGHT' }
     ])
+    .size(0, 0)
     .tableRow([
       { text: 'Ship fee', width: 0.5 },
       { text: '12,300 $', align: 'RIGHT' }

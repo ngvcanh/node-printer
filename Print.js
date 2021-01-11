@@ -25,6 +25,10 @@ function Print(deviceInfo, options){
 
   this.encoding = '';
 
+  this.data = [];
+
+  this._size = [ 0, 0 ];
+
 }
 
 Print.Chars = {
@@ -39,6 +43,10 @@ Print.Chars = {
     A: '\x1b\x4d\x00',
     B: '\x1b\x4d\x01',
     C: '\x1b\x4d\x02'
+  },
+  LINESPACE: {
+    DEFAULT: '\x1b\x32',
+    SET: '\x1b\x33'
   }
 };
 
@@ -46,6 +54,10 @@ Print.prototype.encode = function(encode){
   this.encoding = encode;
   return this;
 }
+
+Print.prototype.getWidth = function(){
+  return this.width / (this._size[0] + 1);
+};
 
 Print.prototype.size = function(width, height){
   width = +width;
@@ -57,6 +69,8 @@ Print.prototype.size = function(width, height){
   width = width > 7 ? 7 : width;
   height = height > 7 ? 7 : height;
 
+  this._size = [ width, height ];
+
   //return this.text('\x1d\x21' + String.fromCharCode(width * 16 + height));
 
   value = width * 16 + height;
@@ -64,6 +78,16 @@ Print.prototype.size = function(width, height){
 
   value.length % 2 === 0 || (value = '0' + value);
   return this.text(Buffer.from('1d21' + value, 'hex'));
+};
+
+Print.prototype.lineSpace = function(n){
+  if (n === undefined || n === null) {
+    this.buffer.write(Print.Chars.LINESPACE.DEFAULT);
+  } else {
+    this.buffer.write(Print.Chars.LINESPACE.SET);
+    this.buffer.writeUInt8(n);
+  }
+  return this;
 };
 
 Print.prototype.newLine = function(){
@@ -81,11 +105,11 @@ Print.prototype.textLn = function(text, encode){
 };
 
 Print.prototype.dashedLine = function(){
-  return this.textLn('-'.repeat(this.width));
+  return this.textLn('-'.repeat(this.getWidth()));
 };
 
 Print.prototype.dottedLine = function(){
-  return this.textLn('.'.repeat(this.width));
+  return this.textLn('.'.repeat(this.getWidth()));
 };
 
 Print.prototype._formatCell = function(text, width, align){
@@ -117,7 +141,7 @@ Print.prototype.tableRow = function(data, options){
 
     if (row && row.width && +row.width > 0){
       ++numHasSize;
-      width = parseInt(this.width * row.width);
+      width = parseInt(this.getWidth() * row.width);
       totalSize += width;
     }
 
@@ -125,7 +149,7 @@ Print.prototype.tableRow = function(data, options){
   });
 
   let remainNumSize = data.length - numHasSize
-  , sizeRemainCell = parseInt((this.width - totalSize) / remainNumSize)
+  , sizeRemainCell = parseInt((this.getWidth() - totalSize) / remainNumSize)
   , maxLine = 1;
 
   data = data.map(row => {
@@ -150,20 +174,19 @@ Print.prototype.tableRow = function(data, options){
           added = false;
         }
         else if (word.length > row.width){
+          currentLength > 0 && line.push(subText.join(' '));
+          subText = [];
+          let isBreak;
+
           do{
-            let length = row.width - currentLength;
-            currentLength > 0 && (length -= 1);
-
-            subText.push(word.substr(0, length));
-            word = word.substr(length);
-            line.push(subText.join(' '));
-
-            subText = [];
-            currentLength = 0;
+            line.push(word.substr(0, row.width));
+            word = word.substr(row.width);
+            isBreak = (word.length < row.width);
+            isBreak && subText.push(word);
           }
-          while(word.length);
+          while(!isBreak);
 
-          added = true;
+          added = !subText.length;
         }
         else{
           line.push(this._formatCell(subText.join(' '), row.width, row.align));
@@ -188,9 +211,16 @@ Print.prototype.tableRow = function(data, options){
     return row;
   });
 
-  for (let i = 0; i < maxLine; ++i){
-    let lineTxt = '';
-    data.map(row => lineTxt += row.line[i] || ' '.repeat(row.width));
+  let lineTxt, i = 0;
+
+  for (i = 0; i < maxLine; ++i){
+    lineTxt = '';
+    
+    data.map(row => {
+      let length = row.line[i] ? row.line[i].length : 0;
+      lineTxt += (row.line[i] || '') + ' '.repeat(row.width - length);
+    });
+
     this.textLn(lineTxt, encode);
   }
 
@@ -214,6 +244,7 @@ Print.prototype.feed = function(n){
 
 Print.prototype.cut = function(feed){
   this.feed(+feed || 3).buffer.write(Print.Chars.CUT);
+  this.data.push({ text: Print.Chars.CUT });
   return this;
 };
 
