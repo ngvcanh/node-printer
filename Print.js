@@ -1,6 +1,12 @@
 const SerialPort = require('serialport');
 const EventEmitter = require('events');
 const { MutableBuffer } = require('mutable-buffer');
+const iconv = require('iconv-lite');
+
+function encoding(text, encode){
+  if (!encode) return text;
+  return iconv.encode(text, encode);
+};
 
 function Print(deviceInfo, options){
 
@@ -16,6 +22,8 @@ function Print(deviceInfo, options){
   this.width = options && +options.width || 42;
 
   this.buffer = new MutableBuffer();
+
+  this.encoding = '';
 
 }
 
@@ -34,33 +42,50 @@ Print.Chars = {
   }
 };
 
+Print.prototype.encode = function(encode){
+  this.encoding = encode;
+  return this;
+}
+
+Print.prototype.size = function(width, height){
+  width = +width;
+  height = +height;
+
+  width = width < 0 ? 0 : width;
+  height = height < 0 ? 0 : height;
+
+  width = width > 7 ? 7 : width;
+  height = height > 7 ? 7 : height;
+
+  //return this.text('\x1d\x21' + String.fromCharCode(width * 16 + height));
+
+  value = width * 16 + height;
+  value = value.toString(16);
+
+  value.length % 2 === 0 || (value = '0' + value);
+  return this.text(Buffer.from('1d21' + value, 'hex'));
+};
+
 Print.prototype.newLine = function(){
   this.buffer.write(Print.Chars.EOL);
   return this;
 };
 
-Print.prototype.text = function(text){
-  this.buffer.write(text);
+Print.prototype.text = function(text, encode){
+  this.buffer.write(encoding(text, encode || this.encoding));
   return this;
 };
 
-Print.prototype.textLn = function(text){
-  this.buffer.write(text + Print.Chars.EOL);
-  return this;
+Print.prototype.textLn = function(text, encode){
+  return this.text(text, encode).newLine();
 };
 
 Print.prototype.dashedLine = function(){
-  for (let i = 0; i < this.width; ++i){
-    this.buffer.write('-');
-  }
-  return this.newLine();
+  return this.textLn('-'.repeat(this.width));
 };
 
 Print.prototype.dottedLine = function(){
-  for (let i = 0; i < this.width; ++i){
-    this.buffer.write('.');
-  }
-  return this.newLine();
+  return this.textLn('.'.repeat(this.width));
 };
 
 Print.prototype._formatCell = function(text, width, align){
@@ -82,15 +107,13 @@ Print.prototype._formatCell = function(text, width, align){
   return text;
 };
 
-Print.prototype.tableRow = function(data){
+Print.prototype.tableRow = function(data, options){
   if (!Array.isArray(data) || !data.length) return this;
+  let { encoding: encode } = options || {}, numHasSize = 0, totalSize = 0;
 
-  let numHasSize = 0;
-  let totalSize = 0;
-
-  let fixData = data.map(row => {
-    let text = 'text' in row ? row.text.toString() : '';
-    let width = -1;
+  data = data.map(row => {
+    let text = 'text' in row ? row.text.toString() : '', width = -1
+    , align = [ 'RIGHT', 'CENTER' ].indexOf(row.align) > -1 ? row.align : 'LEFT';
 
     if (row && row.width && +row.width > 0){
       ++numHasSize;
@@ -98,32 +121,25 @@ Print.prototype.tableRow = function(data){
       totalSize += width;
     }
 
-    let align = [ 'RIGHT', 'CENTER' ].indexOf(row.align) > -1 ? row.align : 'LEFT';
     return { text, width, align };
   });
 
-  let remainNumSize = data.length - numHasSize;
-  let sizeRemainCell = parseInt((this.width - totalSize) / remainNumSize);
-  let maxLine = 1;
+  let remainNumSize = data.length - numHasSize
+  , sizeRemainCell = parseInt((this.width - totalSize) / remainNumSize)
+  , maxLine = 1;
 
-  fixData = fixData.map(row => {
-    if (row.width <= 0){
-      row.width = sizeRemainCell;
-    }
+  data = data.map(row => {
+    row.width <= 0 && (row.width = sizeRemainCell);
 
     if (row.width <= 0){
       row.line = [''];
       return row;
     }
 
-    let line = [];
-    let textLine = row.width > 0 ? row.text : '';
+    let line = [], textLine = row.width > 0 ? row.text : '';
 
     if (textLine.length){
-      let arrWord = textLine.split(' ');
-      let subText = '';
-      let word;
-      let added = false;
+      let arrWord = textLine.split(' '), subText = '', word, added = false;
 
       do{
         word = arrWord.shift();
@@ -133,7 +149,7 @@ Print.prototype.tableRow = function(data){
           added = false;
         }
         else{
-          line.push(this._formatCell(subText, row.write, row.align));
+          line.push(this._formatCell(subText, row.width, row.align));
           added = true;
           subText = '';
           if (arrWord.length) maxLine++;
@@ -153,11 +169,8 @@ Print.prototype.tableRow = function(data){
 
   for (let i = 0; i < maxLine; ++i){
     let lineTxt = '';
-    fixData.map(row => {
-      console.log(row);
-      lineTxt += row.line[i] || ' '.repeat(row.width)
-    });console.log('line text ::', lineTxt);
-    this.text(lineTxt).newLine();
+    data.map(row => lineTxt += row.line[i] || ' '.repeat(row.width));
+    this.textLn(lineTxt, encode);
   }
 
   return this;

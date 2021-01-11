@@ -8,9 +8,11 @@ const print = () => {
     p
     .font('b')
     .align('RT')
+    .size(1, 1)
     .textLn('210110-00123')
     .align('CT')
     .textLn('title of receipt')
+    .size(0, 0)
     .dashedLine()
     .tableRow([
       { text: 'User', width: 0.3 },
@@ -22,8 +24,8 @@ const print = () => {
     ])
     .tableRow([
       { text: 'Address', width: 0.3 },
-      { text: ': address address address address address address address address address address address' }
-    ])
+      { text: ': 경남 김김ㄱ미기미미해시 창산소아ㅓ마ㅓㄴㅇㄹ;미ㅏㅓㄴㅇ람ㄴㅇㄹㄴㅇㄹㅁㄴㅇㄻㄴㅇㄻㄴㅇㄹ' }
+    ], { encoding: 'EUC-KR' })
     .dashedLine()
     .tableRow([
       { text: 'Food', width: 0.5 },
@@ -56,8 +58,6 @@ const print = () => {
       { text: 'COD', align: 'RIGHT' }
     ])
     .dashedLine()
-
-    
     .feed(3)
     .cut();
     setTimeout(function(){
