@@ -7,6 +7,10 @@ function encoding(text, encode){
   return iconv.encode(text, encode);
 };
 
+function textLength(text){
+  return Buffer.byteLength(text, encode);
+}
+
 function Printer(device, options){
   
   if (typeof device.write !== 'function'){
@@ -163,26 +167,29 @@ Printer.prototype.tableRow = function(data, options){
 
       do{
         word = arrWord.shift();
-        let currentLength = subText.join(' ').length;
+        let currentLength = textLength(subText.join(' '), encode)
+        , wordLength = textLength(word.length, encode);
         
-        if (word.length + currentLength + 1 < row.width){
+        if (wordLength + currentLength + 1 < row.width){
           subText.push(word);
           added = false;
         }
-        else if (word.length > row.width){
+        else if (wordLength > row.width){
           currentLength > 0 && line.push(subText.join(' '));
           subText = [];
-          let isBreak;
+          let wordSplit = '';
 
-          do{
-            line.push(word.substr(0, row.width));
-            word = word.substr(row.width);
-            isBreak = (word.length < row.width);
-            isBreak && subText.push(word);
+          for (let i = 0; i < word.length; ++i){
+            if (textLength(word[i], encode) + textLength(wordSplit, encode) <= row.width){
+              wordSplit += word[i];
+            }
+            else{
+              wordSplit.length && line.push(wordSplit);
+              wordSplit = word[i];
+            }
           }
-          while(!isBreak);
 
-          added = !subText.length;
+          added = true;
         }
         else{
           line.push(this._formatCell(subText.join(' '), row.width, row.align));
