@@ -8,7 +8,7 @@ function encoding(text, encode){
 };
 
 function textLength(text){
-  return Buffer.byteLength(text, encode);
+  return Buffer.byteLength(text, encode || 'utf-8');
 }
 
 function Printer(device, options){
@@ -133,7 +133,7 @@ Printer.prototype._formatCell = function(text, width, align){
 
 Printer.prototype.tableRow = function(data, options){
   if (!Array.isArray(data) || !data.length) return this;
-  let { encoding: encode } = options || {}, numHasSize = 0, totalSize = 0;
+  let { encoding: encode = this.encoding } = options || {}, numHasSize = 0, totalSize = 0;
 
   data = data.map(row => {
     let text = 'text' in row ? row.text.toString() : '', width = -1
