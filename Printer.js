@@ -7,7 +7,7 @@ function encoding(text, encode){
   return iconv.encode(text, encode);
 };
 
-function textLength(text){
+function textLength(text, encode){
   return Buffer.byteLength(text, encode || 'utf-8');
 }
 
