@@ -1,4 +1,3 @@
-const SerialPort = require('serialport');
 const EventEmitter = require('events');
 const { MutableBuffer } = require('mutable-buffer');
 const iconv = require('iconv-lite');
@@ -8,16 +7,15 @@ function encoding(text, encode){
   return iconv.encode(text, encode);
 };
 
-function Print(deviceInfo, options){
+function Printer(device, options){
+  
+  if (typeof device.write !== 'function'){
+    throw new Error('Device must be a write function.');
+  }
 
   EventEmitter.call(this);
 
-  this.path = deviceInfo.path;
-
-  this.device = new SerialPort(this.path, {
-    baudRate: deviceInfo.baudRate || 9200,
-    autoOpen: deviceInfo.autoOpen || false
-  });
+  this.device = device;
 
   this.width = options && +options.width || 42;
 
@@ -25,13 +23,11 @@ function Print(deviceInfo, options){
 
   this.encoding = '';
 
-  this.data = [];
-
   this._size = [ 0, 0 ];
 
 }
 
-Print.Chars = {
+Printer.Chars = {
   EOL: '\n',
   CUT: '\x1d\x56\x00',
   ALIGN: {
@@ -50,16 +46,16 @@ Print.Chars = {
   }
 };
 
-Print.prototype.encode = function(encode){
+Printer.prototype.encode = function(encode){
   this.encoding = encode;
   return this;
 }
 
-Print.prototype.getWidth = function(){
+Printer.prototype.getWidth = function(){
   return this.width / (this._size[0] + 1);
 };
 
-Print.prototype.size = function(width, height){
+Printer.prototype.size = function(width, height){
   width = +width;
   height = +height;
 
@@ -80,39 +76,39 @@ Print.prototype.size = function(width, height){
   return this.text(Buffer.from('1d21' + value, 'hex'));
 };
 
-Print.prototype.lineSpace = function(n){
+Printer.prototype.lineSpace = function(n){
   if (n === undefined || n === null) {
-    this.buffer.write(Print.Chars.LINESPACE.DEFAULT);
+    this.buffer.write(Printer.Chars.LINESPACE.DEFAULT);
   } else {
-    this.buffer.write(Print.Chars.LINESPACE.SET);
+    this.buffer.write(Printer.Chars.LINESPACE.SET);
     this.buffer.writeUInt8(n);
   }
   return this;
 };
 
-Print.prototype.newLine = function(){
-  this.buffer.write(Print.Chars.EOL);
+Printer.prototype.newLine = function(){
+  this.buffer.write(Printer.Chars.EOL);
   return this;
 };
 
-Print.prototype.text = function(text, encode){
+Printer.prototype.text = function(text, encode){
   this.buffer.write(encoding(text, encode || this.encoding));
   return this;
 };
 
-Print.prototype.textLn = function(text, encode){
+Printer.prototype.textLn = function(text, encode){
   return this.text(text, encode).newLine();
 };
 
-Print.prototype.dashedLine = function(){
+Printer.prototype.dashedLine = function(){
   return this.textLn('-'.repeat(this.getWidth()));
 };
 
-Print.prototype.dottedLine = function(){
+Printer.prototype.dottedLine = function(){
   return this.textLn('.'.repeat(this.getWidth()));
 };
 
-Print.prototype._formatCell = function(text, width, align){
+Printer.prototype._formatCell = function(text, width, align){
   let emptyLength = width - text.length;
   if (!emptyLength) return text;
 
@@ -131,7 +127,7 @@ Print.prototype._formatCell = function(text, width, align){
   return text;
 };
 
-Print.prototype.tableRow = function(data, options){
+Printer.prototype.tableRow = function(data, options){
   if (!Array.isArray(data) || !data.length) return this;
   let { encoding: encode } = options || {}, numHasSize = 0, totalSize = 0;
 
@@ -227,40 +223,39 @@ Print.prototype.tableRow = function(data, options){
   return this;
 };
 
-Print.prototype.align = function(align){
-  this.buffer.write(Print.Chars.ALIGN[align.toUpperCase()]);
+Printer.prototype.align = function(align){
+  this.buffer.write(Printer.Chars.ALIGN[align.toUpperCase()]);
   return this;
 };
 
-Print.prototype.font = function(type){
-  this.buffer.write(Print.Chars.FONT[type.toUpperCase()]);
+Printer.prototype.font = function(type){
+  this.buffer.write(Printer.Chars.FONT[type.toUpperCase()]);
   return this;
 };
 
-Print.prototype.feed = function(n){
-  this.buffer.write(new Array(+n || 1).fill(Print.Chars.EOL).join(''));
+Printer.prototype.feed = function(n){
+  this.buffer.write(new Array(+n || 1).fill(Printer.Chars.EOL).join(''));
   return this;
 }
 
-Print.prototype.cut = function(feed){
-  this.feed(+feed || 3).buffer.write(Print.Chars.CUT);
-  this.data.push({ text: Print.Chars.CUT });
+Printer.prototype.cut = function(feed){
+  this.feed(+feed || 3).buffer.write(Printer.Chars.CUT);
   return this;
 };
 
-Print.prototype.open = function(callback){
+Printer.prototype.open = function(callback){
   this.device.open(err => typeof callback === 'function' && callback.call(this, err));
   return this;
 }
 
-Print.prototype.flush = function(callback){
+Printer.prototype.flush = function(callback){
   var buf = this.buffer.flush();
   this.device.write(buf, callback);
   return this;
 };
 
-Print.prototype.close = function(callback, options){
+Printer.prototype.close = function(callback, options){
   return this.flush(() => this.device.close(callback, options));
 };
 
-module.exports = Print;
+module.exports = Printer;

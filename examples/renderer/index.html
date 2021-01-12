@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thermal printer</title>
+  <style type="text/css">
+
+    *{
+      font-size: 13px;
+      margin: 0;
+      padding: 0;
+      font-family: monospace;
+      box-sizing: border-box;
+    }
+
+    body{
+      min-height: 100vh;
+    }
+
+    .page-wrapper{
+      padding: 15px 0;
+      background-color: #fff;
+      height: 100%;
+    }
+
+    .collapse-wrapper{
+      display: block;
+      padding: 0 3px;
+    }
+
+    .collapse-wrapper .collapse-header{
+      display: block;
+      cursor: pointer;
+      background-color: #efefef;
+      border: 1px outset #efefef;
+      padding: 3px 8px;
+      font-weight: bold;
+    }
+
+    .collapse-wrapper .collapse-body{
+      height: 0;
+      transition: all ease 0.5s;
+      overflow: hidden;
+    }
+
+    .collapse-wrapper.show .collapse-body{
+      height: auto;
+    }
+
+    .form-wrapper{
+      padding: 15px;
+    }
+
+    .form-control{
+      display: block;
+      width: 100%;
+      height: 38px;
+      line-height: 38px;
+      padding: 0 8px;
+      border-radius: 4px;
+    }
+
+    .row{
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    .col-6{
+      display: flex;
+      width: 50%;
+      min-height: 38px;
+      flex: 0 0 50%;
+      padding: 0 8px;
+    }
+
+    .btn{
+      height: 38px;
+      line-height: 38px;
+      padding: 0 15px;
+      border-radius: 4px;
+      background-color: #efefef;
+      border: 1px solid #efefef;
+      cursor: pointer;
+    }
+
+    .mt-3{
+      margin-top: 1.5rem;
+    }
+
+    .text-right{
+      text-align: right!important;
+      justify-content: flex-end;
+    }
+
+    .w-100{
+      width: 100%;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="page-wrapper">
+    <div class="collapse-wrapper">
+      <div class="collapse-header">
+        Print Serial Port
+      </div>
+      <div class="collapse-body">
+        <div class="form-wrapper">
+          <div class="row">
+            <div class="col-6">
+              <select class="form-control" id="serialPath" name="path">
+
+              </select>
+            </div>
+            <div class="col-6">
+              <select class="form-control" id="serialBaudRate" name="baudRate">
+                <option value="110">110</option>
+                <option value="300">300</option>
+                <option value="600">600</option>
+                <option value="1200">1200</option>
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600" selected>9600</option>
+                <option value="14400">14400</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="115200">115200</option>
+                <option value="128000">128000</option>
+                <option value="256000">256000</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <select class="form-control mt-3" id="serialWidth" name="width">
+                <option value="42">Width: 42</option>
+                <option value="58">Width: 58</option>
+                <option value="64">Width: 64</option>
+              </select>
+            </div>
+            <div class="col-6 mt-3 text-right">
+              <button 
+                class="btn printChannelElements w-100" 
+                data-channel-name="PRINT_SERIAL" 
+                data-elements="#serialPath,#serialBaudRate,#serialWidth"
+              >Print</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="collapse-wrapper mt-3">
+      <div class="collapse-header">
+        Print USB
+      </div>
+      <div class="collapse-body">
+        <div class="form-wrapper">
+          <div class="row">
+            <div class="col-6">
+              <select class="form-control" id="usbPath" name="path">
+
+              </select>
+            </div>
+            <div class="col-6">
+              <select class="form-control" id="usbWidth" name="width">
+                <option value="42">Width: 42</option>
+                <option value="58">Width: 58</option>
+                <option value="64">Width: 64</option>
+              </select>
+            </div>
+            <div class="col-6 mt-3">
+              <button 
+                class="btn printChannelElements w-100" 
+                data-channel-name="PRINT_USB" 
+                data-elements="#usbPath,#usbWidth,#usbAutoFind"
+              >Print</button>
+            </div>
+            <div class="col-6 mt-3">
+              <label>
+                <input type="checkbox" id="usbAutoFind" name="autoFind" />
+                <span>Auto find printer</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    function appendCOMPort(){
+      if (!window.ports || !window.ports.COM) return;
+      var elSerialPath = document.getElementById('serialPath');
+      elSerialPath.innerHTML = '';
+
+      window.ports.COM.map(function(port){
+        let opt = document.createElement('option');
+        opt.setAttribute('value', port.path);
+        opt.innerText = port.path;
+        elSerialPath.appendChild(opt);
+      });
+    }
+
+    function appendUSBPort(){
+      if (!window.ports || !window.ports.USB) return;
+      var elUSBPath = document.getElementById('usbPath');
+
+      window.ports.USB.map(function(port){
+        let opt = document.createElement('option');
+        opt.innerText = 'Port_#000' + port.portNumbers[0] + '.Hub_#000' + port.deviceAddress;
+        opt.setAttribute('value', port.idVendor + '.' + port.idProduct);
+        elUSBPath.appendChild(opt);
+      });
+    }
+
+    (function(){
+
+      document.addEventListener('click', function(event){
+        if (event.target.classList.contains('collapse-header')){
+          event.target.parentNode.classList.toggle('show');
+        }
+      });
+
+      if (PrinterApi){
+        PrinterApi.responseOnce(PrinterApi.channels.DEVICE_PORTS, function(event, ports){
+          window.ports = ports;
+          appendCOMPort();
+          appendUSBPort();
+        });
+      }
+
+      Array.from(document.querySelectorAll('.printChannelElements')).map(function(el){
+        el.addEventListener('click', function(event){
+          event.preventDefault();
+          
+          let channelName = el.getAttribute('data-channel-name');
+          let elParams = el.getAttribute('data-elements');
+          let data = {};
+          
+          Array.from(document.querySelectorAll(elParams)).map(function(p){
+            let name = p.getAttribute('name');
+            if (p.type === 'checkbox'){
+              data[name] = p.checked;
+            }
+            else{
+              data[name] = p.value;
+            }
+          });
+
+          PrinterApi.request(PrinterApi.channels[channelName], data);
+        });
+      });
+
+    })();
+  </script>
+</body>
+</html>
