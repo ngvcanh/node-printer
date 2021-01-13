@@ -71,9 +71,9 @@ Printer.prototype.size = function(width, height){
 
   this._size = [ width, height ];
 
-  //return this.text('\x1d\x21' + String.fromCharCode(width * 16 + height));
+  return this.text('\x1d\x21' + String.fromCharCode(width * 16 + height));
 
-  value = width * 16 + height;
+  value = width + height;
   value = value.toString(16);
 
   value.length % 2 === 0 || (value = '0' + value);
@@ -145,7 +145,7 @@ Printer.prototype.tableRow = function(data, options){
     if (!cell || typeof cell !== 'object' || Array.isArray(cell)) return { text, align, width };
 
     'text' in cell && (text = cell.text + '');
-    [ 'RIGHT', 'CENTER' ].indexOf(cell.align) && (align = cell.align);
+    [ 'RIGHT', 'CENTER' ].indexOf(cell.align) > -1 && (align = cell.align);
 
     if (+cell.width > 0){
       ++numHasSize;
