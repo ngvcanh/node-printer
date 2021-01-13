@@ -8,7 +8,7 @@ function encoding(text, encode){
 };
 
 function textLength(text, encode){
-  return Buffer.byteLength(text, encode || 'utf-8');
+  return Buffer.byteLength(encoding(text.toString(), encode));
 }
 
 function Printer(device, options){
@@ -112,20 +112,25 @@ Printer.prototype.dottedLine = function(){
   return this.textLn('.'.repeat(this.getWidth()));
 };
 
-Printer.prototype._formatCell = function(text, width, align){
-  let emptyLength = width - text.length;
-  if (!emptyLength) return text;
+Printer.prototype.spaceRepeat = function(length){
+	length = +length;
+	if (length <= 0) return '';
+	return ' '.repeat(length);
+};
+
+Printer.prototype._formatCell = function(text, spaces, align){
+  if (!spaces) return text;
 
   if (align == 'RIGHT'){
-    text = ' '.repeat(emptyLength) + text;
+    text = spaces + text;
   }
   else if (align == 'CENTER'){
-    let leftEmpty = parseInt(emptyLength / 2);
-    let rightEmpty = emptyLength - leftEmpty;
-    text = ' '.repeat(leftEmpty) + text + ' '.repeat(rightEmpty);
+    let leftSpaces = spaces.substr(0, parseInt(spaces.length / 2)) ;
+    let rightSpaces = spaces.substr(leftSpaces.length);
+    text = leftSpaces + text + rightSpaces;
   }
   else{
-    text += ' '.repeat(emptyLength);
+    text += spaces;
   }
 
   return text;
@@ -135,93 +140,114 @@ Printer.prototype.tableRow = function(data, options){
   if (!Array.isArray(data) || !data.length) return this;
   let { encoding: encode = this.encoding } = options || {}, numHasSize = 0, totalSize = 0;
 
-  data = data.map(row => {
-    let text = 'text' in row ? row.text.toString() : '', width = -1
-    , align = [ 'RIGHT', 'CENTER' ].indexOf(row.align) > -1 ? row.align : 'LEFT';
+  data = data.map(cell => {
+    let text = '', align = 'LEFT', width = 0;
+    if (!cell || typeof cell !== 'object' || Array.isArray(cell)) return { text, align, width };
 
-    if (row && row.width && +row.width > 0){
+    'text' in cell && (text = cell.text + '');
+    [ 'RIGHT', 'CENTER' ].indexOf(cell.align) && (align = cell.align);
+
+    if (+cell.width > 0){
       ++numHasSize;
-      width = parseInt(this.getWidth() * row.width);
+      width = parseInt(this.getWidth() * +cell.width);
       totalSize += width;
     }
 
-    return { text, width, align };
+    return { text, align, width };
   });
 
   let remainNumSize = data.length - numHasSize
-  , sizeRemainCell = parseInt((this.getWidth() - totalSize) / remainNumSize)
+  , sizeRemainCell = Math.floor((this.getWidth() - totalSize) / remainNumSize)
   , maxLine = 1;
 
-  data = data.map(row => {
-    row.width <= 0 && (row.width = sizeRemainCell);
+  data = data.map(cell => {
+    cell.width <= 0 && (cell.width = sizeRemainCell);
+    cell.line = [];
 
-    if (row.width <= 0){
-      row.line = [''];
-      return row;
+    if (cell.width <= 0){
+      cell.width = 0;
+      return cell;
     }
 
-    let line = [], textLine = row.width > 0 ? row.text : '';
+    if (!cell.text.length) return cell;
 
-    if (textLine.length){
-      let arrWord = textLine.split(' '), subText = [], word, added = false;
+    let arrWord = cell.text.split(' '), line = [], i = 0;
 
-      do{
-        word = arrWord.shift();
-        let currentLength = textLength(subText.join(' '), encode)
-        , wordLength = textLength(word.length, encode);
+    for (; i < arrWord.length; ++i){
+      let word = arrWord[i]
+      , newStr = line.concat([ word ]).join(' ')
+      , newLineLength = textLength(newStr, encode);
+
+      if (newLineLength < cell.width){
+        line.push(word);
+      }
+      else if (newLineLength == cell.width){
+        cell.line.push(newStr);
+        line = [];
+      }
+      else{
+        let wordLength = textLength(word, encode);
         
-        if (wordLength + currentLength + 1 < row.width){
-          subText.push(word);
-          added = false;
-        }
-        else if (wordLength > row.width){
-          currentLength > 0 && line.push(subText.join(' '));
-          subText = [];
-          let wordSplit = '';
+        cell.line.push(line.join(' '));
+        line = [];
 
-          for (let i = 0; i < word.length; ++i){
-            if (textLength(word[i], encode) + textLength(wordSplit, encode) <= row.width){
-              wordSplit += word[i];
+        if (wordLength >= cell.width){
+          
+          for (let j = 0; j = word.length; ++j){
+            let char = word[j]
+            , newCharLength = textLength(line.join('') + char, encode);
+            
+            if (newCharLength == cell.width){
+              cell.line.push(line.join('') + char);
+              line = [];
+            }
+            else if (newCharLength < cell.width){
+              line.push(char);
             }
             else{
-              wordSplit.length && line.push(wordSplit);
-              wordSplit = word[i];
+              cell.line.push(line.join(''));
+              line = [ char ];
+            }
+
+            if (j == word.length - 1 && line.join('').length){
+              line = [ line.join('') ];
             }
           }
-
-          added = true;
         }
         else{
-          line.push(this._formatCell(subText.join(' '), row.width, row.align));
-          added = true;
-          subText = [];
+          line.push(word); 
         }
       }
-      while(arrWord.length);
 
-      if (!added){
-        subText = subText.join(' ');
-        subText.length && line.push(this._formatCell(subText, row.width, row.align));
+      if (i == arrWord.length - 1 && line.join(' ').length){
+        cell.line.push(line.join(' '));
       }
     }
-    else{
-      line.push(' '.repeat(textLine.length));
-    }
 
-    line.length > maxLine && (maxLine = line.length);
-    row.line = line;
-
-    return row;
+    cell.line.length > maxLine && (maxLine = cell.line.length);
+    return cell;
   });
 
-  let lineTxt, i = 0;
+  let lineTxt, i = 0, sizeRow;
 
-  for (i = 0; i < maxLine; ++i){
+  for (; i < maxLine; ++i){
     lineTxt = '';
+    sizeRow = 0;
     
-    data.map(row => {
-      let length = row.line[i] ? row.line[i].length : 0;
-      lineTxt += (row.line[i] || '') + ' '.repeat(row.width - length);
+    data.map(cell => {
+      sizeRow += cell.width;
+
+      let textCell = cell.line[i] ? cell.line[i] : ''
+      , txtLength = textLength(lineTxt + textCell, encode)
+      , spaces = '';
+      
+      while(txtLength < sizeRow){
+        spaces += ' ';
+        txtLength = textLength(lineTxt + textCell + spaces, encode)
+      }
+
+      if (txtLength > sizeRow) spaces = spaces.substr(0, spaces.length - 1);
+      lineTxt += this._formatCell(textCell, spaces, cell.align);
     });
 
     this.textLn(lineTxt, encode);
